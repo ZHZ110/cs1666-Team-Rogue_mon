@@ -65,6 +65,8 @@ pub fn create_all_attack_textures<'a, T>(
     Ok( attacks_map )
 }
 
+
+
 pub fn create_all_effect_textures<'a, T>(
     texture_creator: &'a sdl2::render::TextureCreator<T>, 
     font: &'a sdl2::ttf::Font,
@@ -161,6 +163,8 @@ impl<'a> Battle<'a> {
 }
 
 pub fn draw_battle(wincan: &mut sdl2::render::WindowCanvas, battle_init: &Battle, choice: Option<usize>, message: Option<String>) -> Result<(), String> {
+
+
     // Load the battle scene background
     wincan.copy(&battle_init.background_texture, None, Rect::new(0,0,CAM_W,CAM_H))?;
 
@@ -208,6 +212,17 @@ pub fn draw_battle(wincan: &mut sdl2::render::WindowCanvas, battle_init: &Battle
         let TextureQuery { width, height, .. } = texture.query();
         let text_rect = Rect::new(r.x() + 10, r.y() + 65, 180, 30);
         let text_rect = center(fit(text_rect, width, height), 180, 30);
+
+
+        let stat_name = &battle_init.monsters[&battle_init.player_name].moves[index].name;
+        let texture = &battle_init.attack_map[attack_name];
+        
+
+        //stats of each monster
+        let TextureQuery { width, height, .. } = stats.query();
+        let text_rect = Rect::new(r.x() + 10, r.y() + 200, 180, 30);
+
+
         
         wincan.copy(&texture, None, text_rect)?;
     }
@@ -359,6 +374,8 @@ pub fn player_battle_turn(
     let player_monster = battle_draw.player_name.clone();
 
     // Message for what move was used
+    thread::sleep(Duration::from_millis(100));
+
     let f = format!("{} used {}!", &player_monster, monsters_map[&player_monster].moves[current_choice].name);
     draw_battle(wincan, &battle_draw, None, Some(f))?;
 
@@ -374,7 +391,7 @@ pub fn player_battle_turn(
     );
     match effectiveness {
       Some(s) => {
-        thread::sleep(Duration::from_millis(200));
+        thread::sleep(Duration::from_millis(300));
         draw_battle(wincan, &battle_draw, None, Some(s))?;
       },
       None => {
@@ -382,7 +399,7 @@ pub fn player_battle_turn(
       }
     }
 
-    thread::sleep(Duration::from_millis(200));
+    thread::sleep(Duration::from_millis(300));
     
     if battle_draw.enemy_health == 0.0 {
       // Write message that enemy is KO'd
@@ -414,6 +431,10 @@ pub fn enemy_battle_turn(
     let enemy_choice = rand::thread_rng().gen_range(0..4) as usize;
 
     // Message for what move was used
+
+    thread::sleep(Duration::from_millis(300));
+
+
     let f = format!("{} used {}!", &enemy_monster, monsters_map[&enemy_monster].moves[enemy_choice].name);
     draw_battle(wincan, &battle_draw, None, Some(f))?;
 
@@ -429,7 +450,7 @@ pub fn enemy_battle_turn(
     );
     match effectiveness {
       Some(s) => {
-        thread::sleep(Duration::from_millis(200));
+        thread::sleep(Duration::from_millis(300));
         draw_battle(wincan, &battle_draw, None, Some(s))?;
       },
       None => {
@@ -437,16 +458,19 @@ pub fn enemy_battle_turn(
       }
     }
 
-    thread::sleep(Duration::from_millis(200));
+    thread::sleep(Duration::from_millis(300));
     
     if battle_draw.player_health == 0.0 {
       // Write message that player is KO'd
+          thread::sleep(Duration::from_millis(200));
       let f = format!("{} KO'd {}!", &enemy_monster, &player_monster);
       draw_battle(wincan, &battle_draw, None, Some(f))?;
 
+
+      thread::sleep(Duration::from_millis(200));
       let f = format!("You blacked out!");
       draw_battle(wincan, &battle_draw, None, Some(f))?;
-      thread::sleep(Duration::from_millis(150));
+     
 
       // Fade out back to the overworld
       let screen = Rect::new(0, 0, CAM_W, CAM_H);
