@@ -198,16 +198,19 @@ pub fn display_menu(wincan: &mut sdl2::render::WindowCanvas, player_x: i32, play
 
   // Add the fight tab
   let src_f = Rect::new(0, 0, 128, 64);
-  let pos_f = Rect::new(player_x - 20, player_y - 140, 128, 64);
+  let mut pos_f = Rect::new(player_x - 20, player_y - 140, 128, 64);
 
-  wincan.copy(&fight_tab, src_f, pos_f)?;
   
   // Add the bail tab
   let src_b = Rect::new(0, 0, 128, 64);
-  let pos_b = Rect::new(player_x - 20, player_y - 140 + 64, 128, 64);
-
+  let mut pos_b = Rect::new(player_x - 20, player_y - 140 + 64, 128, 64);
+  
+  if pos_f.y < 0 || pos_b.y < 0{
+    pos_f = Rect::new(player_x - 20, player_y + 50, 128, 64);
+    pos_b = Rect::new(player_x - 20, player_y + 50 + 64, 128, 64);
+  }
+  wincan.copy(&fight_tab, src_f, pos_f)?;
   wincan.copy(&bail_tab, src_b, pos_b)?;
-
   Ok(())
 }
 

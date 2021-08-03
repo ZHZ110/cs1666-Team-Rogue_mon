@@ -24,3 +24,7 @@ Landslide,35,0,0,0,0,Ground,Attacks with the surronding landmass
 Tail Tangle,40,0,0,-1,0,Normal,Uses its tails to strangle the enemy
 Jaw Jab,30,0,0,0,-1,Normal,Bites the enemy
 Plant Punch,15,0,0,0,0,Grass,Punch with plants
+Paralyzing Gaze,0,0,0,0,-2,Normal,Lowers opp. defense by 2
+Hurtful Howl,0,0,0,-2,0,Normal,Lowers opp. attack by 2
+Nailing Tail,50,0,0,0,0,Normal,Powerfully uses tail to attack
+Headfirst Strike,45,0,0,0,0,Normal,Charges headfirst at enemy

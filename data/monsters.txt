@@ -12,3 +12,16 @@ Shockshroom,100,65,Electric,Electric Shock,Headbutt,Germinate,Stare Down
 Burhan2,80,100,Electric,Electric Shock,Charge Conductor,Headbutt,Stare Down
 Zhiyi,90,80,Electric,Electric Shock,Charge Conductor,Storm Summoner,Battle Cry
 deer pokemon,85,75,Flying,Wing Flap,Windy Wind-up,Stare Down,Soar
+​Reusoon,95,55,Normal,Nailing Tail,Jaw Jab,Paralyzing Gaze,Hurtful Howl
+​Chromacat,65,85,Normal,Tail Tangle,Nailing Tail,Headfirst Strike,Paralyzing Gaze
+​orcaaa,95,120,Water,Water Wrath,Water Waves,Headfirst Strike,Hurtful Howl
+​taterface,120,12,Grass,Seed Pistol,Headfirst Strike,Paralyzing Gaze,Tough Turf
+​Gurmail,110,50,Grass,Plant Punch,Nailing Tail,Germinate,Tough Turf
+​melon-mon,75,60,Grass,Seed Pistol,Headfirst Strike,Germinate,Tough Turf
+​tokoro,75,80,Ground,Landslide,Tremor,Seismic Soil,Hurtful Howl
+​BeakFlame,120,50,Fire,Match Strike,Headfirst Strike,Heat Haze,Paralyzing Gaze
+​Burhan,120,40,Fire,Flaming Fervor,Match Strike,Paralyzing Gaze,Hurtful Howl
+​Shockshroom,100,65,Electric,Electric Shock,Headfirst Strike,Germinate,Paralyzing Gaze
+​Burhan2,80,100,Electric,Electric Shock,Charge Conductor,Headfirst Strike,Paralyzing Gaze
+​Zhiyi,90,80,Electric,Electric Shock,Charge Conductor,Storm Summoner,Hurtful Howl
+​deer pokemon,85,75,Flying,Wing Flap,Windy Wind-up,Paralyzing Gaze,Soar

@@ -1,12 +1,43 @@
 use crate::battle;
 use crate::monster;
 
+use rand::{self, Rng};
+
 use std::collections::HashMap;
+
+/// Returns an integer corresponding to an action the AI will take based upon the difficulty
+///
+/// [0-3] represent that the AI will attack with one of its moves
+/// [4-8] represent that the AI will switch into another monster
+/// 
+/// * `difficulty` - The difficulty of the AI. 0 is random; 1 is small lookahead; 2 is large lookahead
+/// * `monsters` - Maps strings onto their Monster objects; needed for damage calculation
+/// * `state` - The current state of the battle
+pub fn ai_agent(
+    difficulty: usize,
+    monsters: &HashMap<String, monster::Monster>,
+    battle_state: &mut monster::BattleState,
+) -> usize {
+    if difficulty == 0 || matches!(battle_state.battle_type, monster::BattleType::Wild) {
+        return rand::thread_rng().gen_range(0..4) as usize;
+    } else if difficulty == 1 {
+        match alphabeta(&monsters, battle_state, 5,  -f64::INFINITY, f64::INFINITY, true).1 {
+            Some(s) => {s}
+            None => 0
+        }
+    } else {
+        match alphabeta(&monsters, battle_state, 8,  -f64::INFINITY, f64::INFINITY, true).1 {
+            Some(s) => {s}
+            None => 0
+        }
+    }
+}
+    
 
 /// Returns the sum of health percentages (0-100) for all team monsters
 ///
 /// * `team` - The team *(as vector of (str monster, health))*
-fn total_team_health(team: &Vec<(String, f32)>) -> f32 {
+fn total_team_health(team: &Vec<(String, f32, usize)>) -> f32 {
     return team.iter().map(|d| d.1).sum();
 }
 
@@ -17,7 +48,7 @@ fn total_team_health(team: &Vec<(String, f32)>) -> f32 {
 ///
 /// * `min_team` - The team *(as vector of (str monster, health))* of the minimizing player
 /// * `max_team` - The team *(as vector of (str monster, health))* of the maximizing player
-fn evaluation_function(min_team: &Vec<(String, f32)>, max_team: &Vec<(String, f32)>) -> f64 {
+fn evaluation_function(min_team: &Vec<(String, f32, usize)>, max_team: &Vec<(String, f32, usize)>) -> f64 {
     let min_team_health: f32 = total_team_health(min_team);
     let max_team_health: f32 = total_team_health(max_team);
     return (max_team_health - min_team_health) as f64;
@@ -26,7 +57,7 @@ fn evaluation_function(min_team: &Vec<(String, f32)>, max_team: &Vec<(String, f3
 /// Returns the number of monsters that can be switched into battle
 ///
 /// * `team` - The team *(as vector of (str monster, health))*
-fn num_switchable_mons(team: &Vec<(String, f32)>) -> usize {
+fn num_switchable_mons(team: &Vec<(String, f32, usize)>) -> usize {
     let alive_mons = team.iter().filter(|d| d.1 > 0.0).count();
     return if alive_mons == 0 { 0 } else { alive_mons - 1 };
 }
@@ -59,7 +90,7 @@ pub fn alphabeta(
     // If depth limit is reached or battle has ended, return the evaluation function of the game state
     if depth == 0 || battle_end {
         return (
-            evaluation_function(&state.player_team, &state.enemy_team),
+            evaluation_function(&state.player_team, &state.enemy_team), // state.turn_number),
             None,
         );
     }
@@ -85,6 +116,8 @@ pub fn alphabeta(
                 self_defense_stages: state.self_defense_stages,
                 opp_attack_stages: state.opp_attack_stages,
                 opp_defense_stages: state.opp_defense_stages,
+                player_badges: state.player_badges,
+                battle_type: state.battle_type,
             };
 
             // Change the new state based upon the action (attack or switch in another monster)
@@ -93,7 +126,7 @@ pub fn alphabeta(
 
                 // Calculate the new health of the opponent (player)
                 let mut new_health = new_state.player_team[0].1
-                    - monster::calculate_damage(monsters, &mut new_state, action, false);
+                    - monster::calculate_damage(monsters, &mut new_state, action);
                 new_health = new_health.clamp(0.0, 100.0);
                 new_state.player_team[0].1 = new_health;
 
@@ -102,6 +135,8 @@ pub fn alphabeta(
             } else {
                 // Action corresponding to a switch
                 new_state.enemy_team.swap(0, action - 3);
+                new_state.opp_attack_stages = 0;
+                new_state.opp_defense_stages = 0;
                 new_state.enemy_team = battle::verify_team(&new_state.enemy_team);
             }
 
@@ -141,6 +176,8 @@ pub fn alphabeta(
                 self_defense_stages: state.self_defense_stages,
                 opp_attack_stages: state.opp_attack_stages,
                 opp_defense_stages: state.opp_defense_stages,
+                player_badges: state.player_badges,
+                battle_type: state.battle_type,
             };
 
             // Change the new state based upon the action (attack or switch in another monster)
@@ -148,15 +185,17 @@ pub fn alphabeta(
                 // Action corresponding to a move
                 // Calculate the new health of the opponent (AI)
                 let mut new_health = new_state.enemy_team[0].1
-                    - monster::calculate_damage(monsters, &mut new_state, action, true);
+                    - monster::calculate_damage(monsters, &mut new_state, action);
                 new_health = new_health.clamp(0.0, 100.0);
                 new_state.enemy_team[0].1 = new_health;
-
+                
                 // Makes sure an active monster is still in front after attack
                 new_state.enemy_team = battle::verify_team(&new_state.enemy_team);
             } else {
                 // Action corresponding to a switch
                 new_state.player_team.swap(0, action - 3);
+                new_state.self_attack_stages = 0;
+                new_state.self_defense_stages = 0;
                 new_state.player_team = battle::verify_team(&new_state.player_team);
             }
             // Following our move, find out which one leads to the best payoff by traversing the game tree
