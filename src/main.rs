@@ -2,7 +2,6 @@ extern crate sdl2;
 
 // Modules
 mod battle;
-mod test;
 pub mod monster;
 pub mod overworld;
 pub mod player;
@@ -121,13 +120,13 @@ fn next_available_mon(v: &Vec<(String, f32, usize)>) -> String {
 fn experience(difficulty: usize, badges: usize) -> usize {
   match difficulty {
     0 => {
-      return 10*badges;
+      return 10*(1+badges);
     }
     1 => {
-      return 30*badges;
+      return 30*(1+badges);
     }
     _ => {
-      return 50*badges;
+      return 50*(1+badges);
     }
   }
 }
@@ -216,9 +215,9 @@ fn run(
   let names_tup = battle::create_all_name_tuples(&texture_creator, &font, &all_monsters)?;
 
   let mut player_team: Vec<(String, f32, usize)> = Vec::new();
-  player_team.push((String::from("Chromacat"), 100.0, 0));
+  player_team.push((String::from("Chromacat"), 100.0, 9));
   player_team.push((String::from("deer pokemon"), 100.0, 0));
-  player_team.push((String::from("tokoro"), 10.0, 0));
+  player_team.push((String::from("tokoro"), 100.0, 0));
   player_team.push((String::from("Shockshroom"), 100.0, 0));
   player_team.push((String::from("Gurmail"), 100.0, 0));
   player_team.push((String::from("Burhan"), 100.0, 0));
@@ -280,8 +279,10 @@ fn run(
   let mut flip_2 = false;
   let mut flip_3 = false;
 
+  let mut gym_no : usize = 1;
+
   // Tracking time
-  let time_count = Instant::now();
+  let mut time_count = Instant::now();
   let mut keypress_timer: f64 = 0.0;
   let mut timer = Instant::now();
 
@@ -309,10 +310,7 @@ fn run(
     texture_creator.load_texture("images/single_npc.png")?,
   );
 
-  let mut gym_one_maze = maze::Maze::create_random_maze(16, 9);
-  let mut gym_two_maze = maze::Maze::create_random_maze(9, 6);
-  let mut gym_three_maze = maze::Maze::create_random_maze(20, 16);
-  let mut gym_four_maze = maze::Maze::create_random_maze(15, 15);
+  let mut gym_mazes = vec!(maze::Maze::create_random_maze(16, 9), maze::Maze::create_random_maze(9, 6), maze::Maze::create_random_maze(20, 16), maze::Maze::create_random_maze(15, 15));
 
   'gameloop: loop {
     for event in event_pump.poll_iter() {
@@ -458,7 +456,7 @@ fn run(
         let front_of_gym_4_box = Rect::new(370, 600, 20, 5);
 
         //Create front of building box for buildings
-        let front_of_hospital_box = Rect::new(110, 600, 20, 5);
+        let front_of_hospital_box = Rect::new(110, 600, 35, 3);
 
         // Create several static npcs
         let npc_static_box1 = Rect::new(490,230,32,32);
@@ -751,7 +749,7 @@ fn run(
           {
             loaded_map = Map::GymOne;
             player_box.set_x(1200);
-              player_box.set_y(7);
+            player_box.set_y(7);
           }
         }
         if check_collision(&player_box, &front_of_gym_2_box)
@@ -761,7 +759,7 @@ fn run(
           {
             loaded_map = Map::GymTwo;
             player_box.set_x(1200);
-              player_box.set_y(7);
+            player_box.set_y(7);
           }
           
         }
@@ -799,6 +797,7 @@ fn run(
           for item in battle_state.player_team.iter_mut() {
             item.1 = 100.0;
           }
+          battle_draw.player_health = 100.0;
           player_box.set_x(player_box.x() - x_vel);
           player_box.set_y(player_box.y() - y_vel);
           x_vel = 0;
@@ -808,7 +807,8 @@ fn run(
 
         for i in &spawnable_areas {
           if check_within(&player_box, i) && random_spawn() 
-            && ((elapsed  * 100.0).round()) % ((DELTA_TIME* 100.0).round()) == 0.0 {
+            && ((elapsed  * 100.0).round()) % ((DELTA_TIME* 100.0).round()) == 0.0 
+            && (elapsed > 3.0) {
             let screen = Rect::new(0, 0, CAM_W, CAM_H);
             wincan.copy(player.texture(), None, player_box)?;
             wincan.set_draw_color(Color::RGBA(0, 0, 0, 15));
@@ -820,7 +820,6 @@ fn run(
             battle_draw.enemy_health = 100.0;
 
             let enemy_team = select_random_team(&all_monsters, 1, experience(difficulty_choice, battle_state.player_badges));
-
 
             let enemy_monster = enemy_team[0].0.clone();
             battle_draw.enemy_name = enemy_monster.clone();
@@ -1178,6 +1177,7 @@ fn run(
           }
           continue;
         }
+
         battle::draw_battle(wincan, &battle_draw, Some(current_choice as usize), None)?;
         if keystate.contains(&Keycode::A) || keystate.contains(&Keycode::Left) {
           if keypress_timer == 0.0 {
@@ -1240,6 +1240,20 @@ fn run(
               )? {
                 Map::Overworld => {
                   loaded_map = Map::Overworld;
+                  if matches!(battle_state.battle_type, monster::BattleType::GymLeader) {
+                    player_badges.insert(gym_no as u32);
+                    battle_state.player_badges = player_badges.len();
+
+                    // Spawn the player at their house
+                    player_box.set_x(675);
+                    player_box.set_y(390);
+                  }
+                  // Set time_count to now so the player isn't immediately sent into another battle
+                  time_count = Instant::now();
+                  continue;
+                },
+                Map::Gym => {
+                  loaded_map = Map::Gym;
                   continue;
                 }
                 _ => {}
@@ -1261,6 +1275,10 @@ fn run(
                     // Have the player spawn at the hospital with full health
                     player_box.set_x(112);
                     player_box.set_y(604);
+
+                    for item in battle_state.player_team.iter_mut() {
+                      item.1 = 100.0;
+                    }
                     battle_draw.player_health = 100.0;
                     continue;
                   }
@@ -1279,319 +1297,396 @@ fn run(
       },
 
       Map::GymOne => {
-        
-        let keystate: HashSet<Keycode> = event_pump
-        .keyboard_state()
-        .pressed_scancodes()
-        .filter_map(Keycode::from_scancode)
-        .collect();
-
-          let mut collision = gym::draw_gym(wincan, gym_one_maze.clone(), 1);
-          
-          for member in collision.iter_mut() {
-
-            if check_collision(&player_box, &member)
-            {
-              player_box.set_x(player_box.x() - x_vel);
-              player_box.set_y(player_box.y() - y_vel);
-            }
-  
-          }
-         
-          let exit_box = Rect::new(1240,0,100,50);
-          if check_collision(&player_box, &exit_box)
-            {
-              gym::display_exit_gym_menu(wincan)?;
-              if keystate.contains(&Keycode::E)
-              {
-  
-                player_box.set_x(410);
-                player_box.set_y(260);
-                loaded_map = Map::Overworld;
-                gym_one_maze = maze::Maze::create_random_maze(16, 9);
-              }
-             
-            }
-          let mut x_deltav = 0;
-          let mut y_deltav = 0;
-          if keystate.contains(&Keycode::W) || keystate.contains(&Keycode::Up) {
-            y_deltav -= ACCEL_RATE;
-          }
-          if keystate.contains(&Keycode::A) || keystate.contains(&Keycode::Left) {
-            x_deltav -= ACCEL_RATE;
-          }
-          if keystate.contains(&Keycode::S) || keystate.contains(&Keycode::Down) {
-            y_deltav += ACCEL_RATE;
-          }
-          if keystate.contains(&Keycode::D) || keystate.contains(&Keycode::Right) {
-            x_deltav += ACCEL_RATE;
-          }
-  
-          //Utilize the resist function: slowing it down
-          x_deltav = resist(x_vel, x_deltav);
-          y_deltav = resist(y_vel, y_deltav);
-  
-          // not exceed speed limit
-          x_vel = (x_vel + x_deltav).clamp(-MAX_SPEED, MAX_SPEED);
-          y_vel = (y_vel + y_deltav).clamp(-MAX_SPEED, MAX_SPEED);
-  
-          // Try to move horizontally
-          player_box.set_x(player_box.x() + x_vel);
-  
-          // Try to move vertically
-          player_box.set_y(player_box.y() + y_vel);
-  
-          wincan.copy(player.texture(), None, player_box)?;
-    
-          wincan.present();
-        
-          if keystate.contains(&Keycode::L)
-          {
-            gym_one_maze = maze::Maze::create_random_maze(16, 9);
-          }
-          if keystate.contains(&Keycode::R)
-          {
-            loaded_map = Map::Overworld;
-          }
-        
+        gym_no = 0;
       },
-  
       Map::GymTwo => {
-          
-        let keystate: HashSet<Keycode> = event_pump
-        .keyboard_state()
-        .pressed_scancodes()
-        .filter_map(Keycode::from_scancode)
-        .collect();
+        gym_no = 1;
+      },
+      Map::GymThree => {
+        gym_no = 2;
+      },
+      Map::GymFour => {
+        gym_no = 3;
+      }, 
+      _ => {
 
-        let mut collision = gym::draw_gym(wincan, gym_two_maze.clone(), 2);
-        
-        for member in collision.iter_mut() {
+      }
+    }
+    if matches!(loaded_map, Map::Gym | Map::GymOne | Map::GymTwo | Map::GymThree | Map::GymFour) {
+      // Determine the walls and draw them
+      let mut collision = gym::draw_gym(wincan, gym_mazes[gym_no].clone(), gym_no);
 
-          if check_collision(&player_box, &member)
-          {
-            player_box.set_x(player_box.x() - x_vel);
-            player_box.set_y(player_box.y() - y_vel);
-          }
-
-        }
-
-        let exit_box = Rect::new(1240,0,100,50);
-        if check_collision(&player_box, &exit_box)
+      let mut wall_collision = false;
+      // Prevent the player from going thru walls
+      for member in collision.iter_mut() {
+        if check_collision(&player_box, &member)
         {
-          gym::display_exit_gym_menu(wincan)?;
-          if keystate.contains(&Keycode::E)
-          {
-            player_box.set_x(1190);
-            player_box.set_y(600);
-            loaded_map = Map::Overworld;
-            gym_two_maze = maze::Maze::create_random_maze(9, 6);
-          }
+          player_box.set_x(player_box.x() - x_vel);
+          player_box.set_y(player_box.y() - y_vel);
+          wall_collision = true;
         }
-        let mut x_deltav = 0;
-        let mut y_deltav = 0;
+      }
+
+      // Determine the placement of gym trainers and boss
+      let gym_npcs = gym::draw_npc(wincan, &gym_mazes[gym_no], gym_no);
+      let boss = gym_npcs.1;
+      
+      // Check if the player wants to exit the gym
+      let exit_box = Rect::new(1240,0,100,50);
+      if check_collision(&player_box, &exit_box)
+      {
+        gym::display_exit_gym_menu(wincan)?;
+        if keystate.contains(&Keycode::E)
+        {
+          let coors = gym::gym_coordinates(gym_no);
+          player_box.set_x(coors.0);
+          player_box.set_y(coors.1);
+          loaded_map = Map::Overworld;
+          maze::reload_maze(&mut gym_mazes, gym_no);
+        }
+      }
+
+      if keystate.contains(&Keycode::M) {
+        menu_active = true;
+        continue;
+      }
+
+      if menu_active {
+        battle::draw_monster_menu(
+          wincan,
+          &battle_draw,
+          &battle_state,
+          menu_choice,
+          menu_selected_choice,
+        )?;
         if keystate.contains(&Keycode::W) || keystate.contains(&Keycode::Up) {
-          y_deltav -= ACCEL_RATE;
+          if keypress_timer == 0.0 {
+            menu_choice = match menu_choice {
+              0 => 6,
+              1 => 6,
+              2 => 0,
+              3 => 1,
+              4 => 2,
+              5 => 3,
+              _ => 2 * (player_team.len() / 2 + player_team.len() % 2 - 1),
+            };
+          } else {
+            continue;
+          }; 
+          // need to calculate how much time each loop takes regarding the machine it runs on 
+          // so that we know how much to increment for the keypress timer
+          keypress_timer += single_elapsed;
+          if keypress_timer >= KEYPRESS_DURATION {
+            keypress_timer = 0.0;
+          }
         }
         if keystate.contains(&Keycode::A) || keystate.contains(&Keycode::Left) {
-          x_deltav -= ACCEL_RATE;
+          if keypress_timer == 0.0 {
+            menu_choice = match menu_choice {
+              0 => {
+                if player_team.len() > 1 {
+                  1
+                } else {
+                  0
+                }
+              }
+              1 => 0,
+              2 => {
+                if player_team.len() > 3 {
+                  3
+                } else {
+                  0
+                }
+              }
+              3 => 2,
+              4 => {
+                if player_team.len() > 5 {
+                  5
+                } else {
+                  0
+                }
+              }
+              5 => 4,
+              _ => 6,
+            };
+          } else {
+            continue;
+          };
+          keypress_timer += single_elapsed;
+          if keypress_timer >= KEYPRESS_DURATION {
+            keypress_timer = 0.0;
+          }
         }
         if keystate.contains(&Keycode::S) || keystate.contains(&Keycode::Down) {
-          y_deltav += ACCEL_RATE;
+          if keypress_timer == 0.0 {
+            menu_choice = match menu_choice {
+              0 => {
+                if player_team.len() > 2 {
+                  2
+                } else {
+                  6
+                }
+              }
+              1 => {
+                if player_team.len() > 3 {
+                  3
+                } else {
+                  6
+                }
+              }
+              2 => {
+                if player_team.len() > 4 {
+                  4
+                } else {
+                  6
+                }
+              }
+              3 => {
+                if player_team.len() == 6 {
+                  5
+                } else {
+                  6
+                }
+              }
+              4 => 6,
+              5 => 6,
+              _ => 0,
+            };
+          } else {
+            continue;
+          };
+          keypress_timer += single_elapsed;
+          if keypress_timer >= KEYPRESS_DURATION {
+            keypress_timer = 0.0;
+          }
         }
         if keystate.contains(&Keycode::D) || keystate.contains(&Keycode::Right) {
-          x_deltav += ACCEL_RATE;
+          if keypress_timer == 0.0 {
+            menu_choice = match menu_choice {
+              0 => {
+                if player_team.len() > 1 {
+                  1
+                } else {
+                  0
+                }
+              }
+              1 => 0,
+              2 => {
+                if player_team.len() > 3 {
+                  3
+                } else {
+                  0
+                }
+              }
+              3 => 2,
+              4 => {
+                if player_team.len() > 5 {
+                  5
+                } else {
+                  0
+                }
+              }
+              5 => 4,
+              _ => 6,
+            };
+          } else {
+            continue;
+          }
+          keypress_timer += single_elapsed;
+          if keypress_timer >= KEYPRESS_DURATION {
+            keypress_timer = 0.0;
+          }
         }
+        if keystate.contains(&Keycode::Return) {
+          if keypress_timer == 0.0 {
+            if menu_choice == 6 {
+              menu_active = false;
+              menu_selected_choice = None;
+              battle_state.player_team = battle::verify_team(&battle_state.player_team);
+              continue;
+            }
+            match menu_selected_choice {
+              Some(choice) => {
+                if choice != menu_choice {
+                  battle_state.player_team.swap(choice, menu_choice);
+                  menu_selected_choice = None;
+                }
+              }
+              None => {
+                menu_selected_choice = Some(menu_choice);
+              }
+            }
+          } else {
+            continue;
+          };
+          keypress_timer += single_elapsed;
+          if keypress_timer >= KEYPRESS_DURATION {
+            keypress_timer = 0.0;
+          }
+        }
+        continue;
+      }
 
-        //Utilize the resist function: slowing it down
-        x_deltav = resist(x_vel, x_deltav);
-        y_deltav = resist(y_vel, y_deltav);
+      // Determine player movement
+      let mut x_deltav = 0;
+      let mut y_deltav = 0;
+      if keystate.contains(&Keycode::W) || keystate.contains(&Keycode::Up) {
+        y_deltav -= ACCEL_RATE;
+      }
+      if keystate.contains(&Keycode::A) || keystate.contains(&Keycode::Left) {
+        x_deltav -= ACCEL_RATE;
+      }
+      if keystate.contains(&Keycode::S) || keystate.contains(&Keycode::Down) {
+        y_deltav += ACCEL_RATE;
+      }
+      if keystate.contains(&Keycode::D) || keystate.contains(&Keycode::Right) {
+        x_deltav += ACCEL_RATE;
+      }
+      
+      //Utilize the resist function: slowing it down
+      x_deltav = resist(x_vel, x_deltav);
+      y_deltav = resist(y_vel, y_deltav);
+      
+      // not exceed speed limit
+      x_vel = (x_vel + x_deltav).clamp(-MAX_SPEED, MAX_SPEED);
+      y_vel = (y_vel + y_deltav).clamp(-MAX_SPEED, MAX_SPEED);
+      
+      // Try to move horizontally
+      player_box.set_x(player_box.x() + x_vel);
+      
+      // Try to move vertically
+      player_box.set_y(player_box.y() + y_vel);
+      
 
-        // not exceed speed limit
-        x_vel = (x_vel + x_deltav).clamp(-MAX_SPEED, MAX_SPEED);
-        y_vel = (y_vel + y_deltav).clamp(-MAX_SPEED, MAX_SPEED);
-
-        // Try to move horizontally
-        player_box.set_x(player_box.x() + x_vel);
-
-        // Try to move vertically
-        player_box.set_y(player_box.y() + y_vel);
-
+      // Determine to show option of battling NPC
+      let mut show_battle_menu = false;
+      for npc in gym_npcs.0 {
+        if !wall_collision && check_collision(&player_box, &npc) {
+          show_battle_menu = true;
+          break;
+        }
+      }
+      
+      // When near NPC, show menu to enter battle
+      if show_battle_menu {
         wincan.copy(player.texture(), None, player_box)?;
-  
+        overworld::display_menu(wincan, player_box.x(), player_box.y())?;
+
+        // Set up a battle
+        if keystate.contains(&Keycode::F) {
+          let enemy_team = select_random_team(&all_monsters, 3, experience(difficulty_choice, battle_state.player_badges));
+          battle_draw.opp_level = enemy_team[0].2 / 10;
+          let enemy_team = battle::verify_team(&enemy_team);
+          
+          let enemy_monster = enemy_team[0].0.clone();
+          battle_draw.enemy_name = enemy_monster.clone();
+          let player_monster = next_available_mon(&battle_state.player_team);
+          battle_draw.player_name = player_monster.clone();
+          
+          battle_state = monster::BattleState {
+            player_turn: true,
+            player_team: battle_state.player_team.clone(),
+            enemy_team: enemy_team.clone(),
+            self_attack_stages: 0,
+            self_defense_stages: 0,
+            opp_attack_stages: 0,
+            opp_defense_stages: 0,
+            player_badges: battle_state.player_badges,
+            battle_type: &monster::BattleType::GymTrainer,
+          };
+          loaded_map = Map::Battle;
+          battle_draw.enemy_health = 100.0;
+          wincan.present();
+          wincan.clear();
+          battle::draw_battle(wincan, &battle_draw, Some(current_choice as usize), None)?;
+          x_vel = 0;
+          y_vel = 0;
+          continue;
+        }
+
+        //flashing not active when moving away
+        if keystate.contains(&Keycode::W)
+        || keystate.contains(&Keycode::Up)
+        || keystate.contains(&Keycode::A)
+        || keystate.contains(&Keycode::Left)
+        || keystate.contains(&Keycode::S)
+        || keystate.contains(&Keycode::Down)
+        || keystate.contains(&Keycode::D)
+        || keystate.contains(&Keycode::Right)
+        {
+          wincan.present();
+          x_vel = 0;
+          y_vel = 0;
+          continue;
+        }
+        //causes the flashing effect. Every time near npc, screen flashes
         wincan.present();
-      
-        if keystate.contains(&Keycode::L)
-        {
-          gym_two_maze = maze::Maze::create_random_maze(9, 6);
+        wincan.present();
+        x_vel = 0;
+        y_vel = 0;
+        continue;
+      } else if check_collision(&player_box, &boss) {
+        wincan.copy(player.texture(), None, player_box)?;
+        overworld::display_menu(wincan, player_box.x(), player_box.y())?;
 
-        }
-        if keystate.contains(&Keycode::R)
-        {
-          loaded_map = Map::Overworld;
-        }
-      
-      },
-  
-      Map::GymThree => {
+        // Set up gym leader battle
+        if keystate.contains(&Keycode::F) {
+          let enemy_team = select_random_team(&all_monsters, 4, experience(difficulty_choice, battle_state.player_badges));
+          battle_draw.opp_level = enemy_team[0].2 / 10;
+          let enemy_team = battle::verify_team(&enemy_team);
           
-        let keystate: HashSet<Keycode> = event_pump
-        .keyboard_state()
-        .pressed_scancodes()
-        .filter_map(Keycode::from_scancode)
-        .collect();
-
-          let mut collision = gym::draw_gym(wincan, gym_three_maze.clone(), 3);
+          let enemy_monster = enemy_team[0].0.clone();
+          battle_draw.enemy_name = enemy_monster.clone();
+          let player_monster = next_available_mon(&battle_state.player_team);
+          battle_draw.player_name = player_monster.clone();
           
-          for member in collision.iter_mut() {
-
-            if check_collision(&player_box, &member)
-            {
-              player_box.set_x(player_box.x() - x_vel);
-              player_box.set_y(player_box.y() - y_vel);
-            }
-  
-          }
-          
-          let exit_box = Rect::new(1240,0,100,50);
-          if check_collision(&player_box, &exit_box)
-            {
-              gym::display_exit_gym_menu(wincan)?;
-              if keystate.contains(&Keycode::E)
-              {
-                player_box.set_x(880);
-                player_box.set_y(400);
-                loaded_map = Map::Overworld;
-                gym_three_maze = maze::Maze::create_random_maze(20, 16);
-              }
-             
-            }
-          let mut x_deltav = 0;
-          let mut y_deltav = 0;
-          if keystate.contains(&Keycode::W) || keystate.contains(&Keycode::Up) {
-            y_deltav -= ACCEL_RATE;
-          }
-          if keystate.contains(&Keycode::A) || keystate.contains(&Keycode::Left) {
-            x_deltav -= ACCEL_RATE;
-          }
-          if keystate.contains(&Keycode::S) || keystate.contains(&Keycode::Down) {
-            y_deltav += ACCEL_RATE;
-          }
-          if keystate.contains(&Keycode::D) || keystate.contains(&Keycode::Right) {
-            x_deltav += ACCEL_RATE;
-          }
-  
-          //Utilize the resist function: slowing it down
-          x_deltav = resist(x_vel, x_deltav);
-          y_deltav = resist(y_vel, y_deltav);
-  
-          // not exceed speed limit
-          x_vel = (x_vel + x_deltav).clamp(-MAX_SPEED, MAX_SPEED);
-          y_vel = (y_vel + y_deltav).clamp(-MAX_SPEED, MAX_SPEED);
-  
-          // Try to move horizontally
-          player_box.set_x(player_box.x() + x_vel);
-  
-          // Try to move vertically
-          player_box.set_y(player_box.y() + y_vel);
-  
-          wincan.copy(player.texture(), None, player_box)?;
-    
+          battle_state = monster::BattleState {
+            player_turn: true,
+            player_team: battle_state.player_team.clone(),
+            enemy_team: enemy_team.clone(),
+            self_attack_stages: 0,
+            self_defense_stages: 0,
+            opp_attack_stages: 0,
+            opp_defense_stages: 0,
+            player_badges: battle_state.player_badges,
+            battle_type: &monster::BattleType::GymLeader,
+          };
+          loaded_map = Map::Battle;
+          battle_draw.enemy_health = 100.0;
           wincan.present();
-        
-          if keystate.contains(&Keycode::L)
-          {
-           
-            gym_three_maze = maze::Maze::create_random_maze(20, 16);
-  
-          }
-          if keystate.contains(&Keycode::R)
-          {
-            loaded_map = Map::Overworld;
-          }
-        
-      },
-  
-      Map::GymFour => {
+          wincan.clear();
+          battle::draw_battle(wincan, &battle_draw, Some(current_choice as usize), None)?;
+          x_vel = 0;
+          y_vel = 0;
+          continue;
+        }
 
-        player_badges.insert(4);
-        battle_state.player_badges = player_badges.len();
-          
-        let keystate: HashSet<Keycode> = event_pump
-        .keyboard_state()
-        .pressed_scancodes()
-        .filter_map(Keycode::from_scancode)
-        .collect();
-
-          let mut collision = gym::draw_gym(wincan, gym_four_maze.clone(), 4);
-          
-          for member in collision.iter_mut() {
-
-            if check_collision(&player_box, &member)
-            {
-              player_box.set_x(player_box.x() - x_vel);
-              player_box.set_y(player_box.y() - y_vel);
-            }
-  
-          }
-
-          let exit_box = Rect::new(1240,0,100,50);
-          if check_collision(&player_box, &exit_box)
-            {
-              gym::display_exit_gym_menu(wincan)?;
-              if keystate.contains(&Keycode::E)
-              {
-                player_box.set_x(380);
-                player_box.set_y(600);
-                loaded_map = Map::Overworld;
-                gym_four_maze = maze::Maze::create_random_maze(15, 15);
-              }
-             
-            }
-          let mut x_deltav = 0;
-          let mut y_deltav = 0;
-          if keystate.contains(&Keycode::W) || keystate.contains(&Keycode::Up) {
-            y_deltav -= ACCEL_RATE;
-          }
-          if keystate.contains(&Keycode::A) || keystate.contains(&Keycode::Left) {
-            x_deltav -= ACCEL_RATE;
-          }
-          if keystate.contains(&Keycode::S) || keystate.contains(&Keycode::Down) {
-            y_deltav += ACCEL_RATE;
-          }
-          if keystate.contains(&Keycode::D) || keystate.contains(&Keycode::Right) {
-            x_deltav += ACCEL_RATE;
-          }
-  
-          //Utilize the resist function: slowing it down
-          x_deltav = resist(x_vel, x_deltav);
-          y_deltav = resist(y_vel, y_deltav);
-  
-          // not exceed speed limit
-          x_vel = (x_vel + x_deltav).clamp(-MAX_SPEED, MAX_SPEED);
-          y_vel = (y_vel + y_deltav).clamp(-MAX_SPEED, MAX_SPEED);
-  
-          // Try to move horizontally
-          player_box.set_x(player_box.x() + x_vel);
-  
-          // Try to move vertically
-          player_box.set_y(player_box.y() + y_vel);
-  
-          wincan.copy(player.texture(), None, player_box)?;
-    
+        //flashing not active when moving away
+        if keystate.contains(&Keycode::W)
+        || keystate.contains(&Keycode::Up)
+        || keystate.contains(&Keycode::A)
+        || keystate.contains(&Keycode::Left)
+        || keystate.contains(&Keycode::S)
+        || keystate.contains(&Keycode::Down)
+        || keystate.contains(&Keycode::D)
+        || keystate.contains(&Keycode::Right)
+        {
           wincan.present();
-        
-          if keystate.contains(&Keycode::L)
-          {
-            
-              gym_four_maze = maze::Maze::create_random_maze(15, 15);
-          }
-          if keystate.contains(&Keycode::R)
-          {
-            loaded_map = Map::Overworld;
-          }
-        
-      },   
+          x_vel = 0;
+          y_vel = 0;
+          continue;
+        }
+        //causes the flashing effect. Every time near npc, screen flashes
+        wincan.present();
+        wincan.present();
+        x_vel = 0;
+        y_vel = 0;
+        continue;
+      }
+
+      // Display the player
+      wincan.copy(player.texture(), None, player_box)?;
+      wincan.present();
     }
   }
 

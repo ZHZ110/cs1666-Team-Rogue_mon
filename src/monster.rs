@@ -10,6 +10,7 @@ const STAGE_LIMIT: i32 = 6;
 pub enum BattleType {
     Wild,
     Trainer,
+    GymTrainer,
     GymLeader,
 }
 
@@ -171,7 +172,6 @@ fn damage_calc(damage: f32, a: f32, d: f32, stab: f32, typb: f32) -> f32 {
 
 pub fn calculate_damage(monsters: &HashMap<String, Monster>, battle_state: &mut BattleState, move_index: usize) -> f32 {
     if battle_state.player_turn {
-        println!("Player {}", &battle_state.player_team[0].0);
         let attack = monsters[&battle_state.player_team[0].0].moves[move_index];
         calculate_player_attack(
             battle_state,
@@ -180,7 +180,6 @@ pub fn calculate_damage(monsters: &HashMap<String, Monster>, battle_state: &mut 
             &monsters[&battle_state.enemy_team[0].0],
         )
     } else {
-        println!("Enemy {}", &battle_state.enemy_team[0].0);
         let attack = monsters[&battle_state.enemy_team[0].0].moves[move_index];
         calculate_opp_attack(
             battle_state,
@@ -205,8 +204,6 @@ fn calculate_player_attack(
     attacker: &Monster,
     opponent: &Monster,
 ) -> f32 {
-    println!("Base attack {}", attacker.attack_stat);
-    println!("Adding {} to player attack (level {})", LEVEL_MULT * (battle_state.player_team[0].2 / 10) as f32, battle_state.player_team[0].2 / 10);
     let leveled_attack = attacker.attack_stat as f32 + (LEVEL_MULT * (battle_state.player_team[0].2 / 10) as f32);
     let leveled_defense = opponent.defense_stat as f32 + (LEVEL_MULT * (battle_state.enemy_team[0].2 / 10) as f32);
 
@@ -214,12 +211,6 @@ fn calculate_player_attack(
         leveled_attack * stage_multiplier(battle_state.self_attack_stages);
     let effective_defense =
         leveled_defense * stage_multiplier(battle_state.opp_defense_stages);
-
-    
-    println!("AM {} DM {}", stage_multiplier(battle_state.self_attack_stages), stage_multiplier(battle_state.opp_defense_stages));
-    println!("LA {} LD {}", leveled_attack, leveled_defense);
-    println!("EA {} ED {}", effective_attack, effective_defense);
-    
 
     let damage = attack.damage as f32;
     let stab_bonus = stab_bonus(&attack.attack_type, &attacker.monster_type);
@@ -232,8 +223,6 @@ fn calculate_player_attack(
         stab_bonus,
         type_bonus,
     );
-
-    println!("{} {}", damage, a);
 
     battle_state.self_attack_stages += attack.self_attack_stages;
     battle_state.self_defense_stages += attack.self_defense_stages;
@@ -253,12 +242,6 @@ fn calculate_player_attack(
         .self_defense_stages
         .clamp(-STAGE_LIMIT, STAGE_LIMIT);
 
-        
-    
-    println!("Player attacks with {}. Effects: {} {} {} {} {}", attack.name, attack.damage, attack.self_attack_stages, attack.self_defense_stages, attack.opp_attack_stages, attack.opp_defense_stages);
-    println!("P Stages: {} {} | O Stages: {} {}",  battle_state.self_attack_stages, battle_state.self_defense_stages, battle_state.opp_attack_stages, battle_state.opp_defense_stages);
-    println!("");
-    
     a
 }
 
@@ -276,10 +259,6 @@ fn calculate_opp_attack(
     let effective_defense =
         leveled_defense * stage_multiplier(battle_state.self_defense_stages);
 
-    println!("AM {} DM {}", stage_multiplier(battle_state.opp_attack_stages), stage_multiplier(battle_state.self_defense_stages));
-    println!("LA {} LD {}", leveled_attack, leveled_defense);
-    println!("EA {} ED {}", effective_attack, effective_defense);
-
     let damage = attack.damage as f32;
     let stab_bonus = stab_bonus(&attack.attack_type, &attacker.monster_type);
     let type_bonus = type_effectiveness(&attack.attack_type, &opponent.monster_type);
@@ -291,8 +270,6 @@ fn calculate_opp_attack(
         stab_bonus,
         type_bonus,
     );
-
-    println!("{} {}", damage, a);
 
     battle_state.opp_attack_stages += attack.self_attack_stages;
     battle_state.opp_defense_stages += attack.self_defense_stages;
@@ -312,10 +289,5 @@ fn calculate_opp_attack(
         .self_defense_stages
         .clamp(-STAGE_LIMIT, STAGE_LIMIT);
 
-    
-    println!("Enemy attacks with {}. Effects: {} {} {} {} {}", attack.name, attack.damage, attack.self_attack_stages, attack.self_defense_stages, attack.opp_attack_stages, attack.opp_defense_stages);
-    println!("P Stages: {} {} | O Stages: {} {}",  battle_state.self_attack_stages, battle_state.self_defense_stages, battle_state.opp_attack_stages, battle_state.opp_defense_stages);
-    println!("");
-    
     a
 }

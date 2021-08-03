@@ -48,11 +48,9 @@ fn total_team_health(team: &Vec<(String, f32, usize)>) -> f32 {
 ///
 /// * `min_team` - The team *(as vector of (str monster, health))* of the minimizing player
 /// * `max_team` - The team *(as vector of (str monster, health))* of the maximizing player
-/// * `turn_number` - The number of turns elapsed in battle; Discourage AI from stalling
-fn evaluation_function(min_team: &Vec<(String, f32, usize)>, max_team: &Vec<(String, f32, usize)>) -> f64 { // turn_number: usize) -> f64 {
+fn evaluation_function(min_team: &Vec<(String, f32, usize)>, max_team: &Vec<(String, f32, usize)>) -> f64 {
     let min_team_health: f32 = total_team_health(min_team);
     let max_team_health: f32 = total_team_health(max_team);
-    println!("Eval = {}", ((max_team_health - min_team_health) as f64));
     return (max_team_health - min_team_health) as f64;
 }
 

@@ -17,6 +17,7 @@ pub enum Map {
     GymTwo,
     GymThree,
     GymFour,
+    Gym,
 }
 
 const CAM_W: u32 = 1280;
@@ -437,8 +438,12 @@ pub fn player_battle_turn(
 
         thread::sleep(Duration::from_millis(200));
         let exp = exp_gain(&enemy_monster, &monsters_map);
-        battle_state.player_team[1].2 += exp;
-        let f = format!("{} gained {} experience.", &player_monster, exp);
+        let mut f = format!("{} gained {} experience.", &player_monster, exp);
+        if battle_state.player_team[0].2 / 10 < (battle_state.player_team[0].2 + exp) / 10 {
+            f = format!("{} gained {} experience and leveled up!", &player_monster, exp);
+        }
+        battle_state.player_team[0].2 += exp;
+        battle_draw.player_level = battle_state.player_team[0].2 / 10;
         draw_battle(wincan, &battle_draw, None, Some(f))?;
 
         if battle_state.enemy_team.len() > 1 && battle_state.enemy_team[1].1 > 0.0 {
@@ -466,7 +471,11 @@ pub fn player_battle_turn(
                 wincan.fill_rect(screen)?;
                 wincan.present();
             }
-            return Ok(Map::Overworld);
+            if matches!(battle_state.battle_type, monster::BattleType::GymTrainer) {
+                return Ok(Map::Gym)
+            } else {
+                return Ok(Map::Overworld);
+            }
         }
     }
     battle_state.player_turn = !battle_state.player_turn;
@@ -486,7 +495,6 @@ pub fn enemy_battle_turn(
     if enemy_choice > 3 {
         thread::sleep(Duration::from_millis(200));
         battle_state.enemy_team.swap(0, enemy_choice-3);
-        println!("{:?}", battle_state.enemy_team);
         battle_state.enemy_team = verify_team(&battle_state.enemy_team);
         let f = format!("Enemy switched in {}", &battle_state.enemy_team[0].0);
         battle_draw.enemy_health = battle_state.enemy_team[0].1;
