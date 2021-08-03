@@ -215,7 +215,7 @@ fn run(
   let names_tup = battle::create_all_name_tuples(&texture_creator, &font, &all_monsters)?;
 
   let mut player_team: Vec<(String, f32, usize)> = Vec::new();
-  player_team.push((String::from("Chromacat"), 100.0, 9));
+  player_team.push((String::from("Chromacat"), 100.0, 0));
   player_team.push((String::from("deer pokemon"), 100.0, 0));
   player_team.push((String::from("tokoro"), 100.0, 0));
   player_team.push((String::from("Shockshroom"), 100.0, 0));
@@ -350,6 +350,9 @@ fn run(
     let single_elapsed = timer.elapsed().as_secs_f64();
     timer = Instant::now();
 
+    player_box.set_width(32);
+    player_box.set_height(32);
+    
     match loaded_map {
       Map::Intro => {
         let screen = Rect::new(0, 0, CAM_W, CAM_H);
@@ -1153,7 +1156,10 @@ fn run(
                     _ => {}
                   }
                 }
-
+                keypress_timer += single_elapsed;
+                if keypress_timer >= KEYPRESS_DURATION {
+                  keypress_timer = 0.0;
+                }
                 continue;
               }
               match menu_selected_choice {
@@ -1304,6 +1310,8 @@ fn run(
       },
       Map::GymThree => {
         gym_no = 2;
+        player_box.set_height(24);
+        player_box.set_width(24);
       },
       Map::GymFour => {
         gym_no = 3;
