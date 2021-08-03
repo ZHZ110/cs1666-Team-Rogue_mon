@@ -7,14 +7,10 @@ use std::time::Duration;
 use std::thread;
 use std::collections::HashMap;
 
-use rand::{self, Rng};
-
 use crate::monster;
 
 pub enum Map {
     Intro,
-    Hospital,
-    Home,
     Overworld,
     Battle,
     GymOne,
@@ -104,8 +100,14 @@ pub fn create_all_name_tuples<'a, T>(
     let mut monster_name_map = HashMap::new();
 
     for item in monster_names.into_iter() {
+        let mut a = item.clone();
+        if a.starts_with("​") { // ZERO WIDTH SPACE {
+            let mut chars = a.chars();
+            chars.next();
+            a = chars.collect();
+        }
         let surface = font
-            .render(item)
+            .render(&a)
             .blended(Color::BLACK)
             .map_err(|e| e.to_string())?;
         let player_texture = texture_creator
@@ -132,8 +134,14 @@ pub fn create_all_monster_textures<'a, T>(
 ) -> Result<HashMap<String, sdl2::render::Texture<'a>>, String> {
     let mut monster_text_map = HashMap::new();
     
-    for item in monster_names.into_iter() {
-        let im_path = format!("images/{}.png", item);
+    for item in monster_names.iter() {
+        let mut a = item.clone();
+        if a.starts_with("​") { // ZERO WIDTH SPACE {
+            let mut chars = a.chars();
+            chars.next();
+            a = chars.collect();
+        }
+        let im_path = format!("images/{}.png", a);
         let temp_text = texture_creator.load_texture(im_path)?;
         monster_text_map.insert(item.clone(), temp_text);
     }
@@ -154,6 +162,8 @@ pub struct Battle<'a> {
     pub monster_text_map: &'a HashMap<String, sdl2::render::Texture<'a>>,
     pub moves: &'a HashMap<String, monster::Move>,
     pub monsters: &'a HashMap<String, monster::Monster<'a>>,
+    pub player_level: usize,
+    pub opp_level: usize,
 }
 
 impl<'a> Battle<'a> {
@@ -237,13 +247,47 @@ pub fn draw_battle(
     wincan.copy(&battle_init.monster_text_map[&battle_init.player_name], None, Rect::new(800,275,200,200))?;
     wincan.copy_ex(&battle_init.monster_text_map[&battle_init.enemy_name], None, Rect::new(280 as i32,25 as i32,200,200), 0 as f64, None, true, false)?;
 
+    // Add level to enemy monster
+    let texture_creator = wincan.texture_creator();
+    let f = format!("Level: {}", &battle_init.opp_level.to_string()); 
+    let surface = battle_init
+        .font
+        .render(&f)
+        .blended(Color::BLACK)
+        .map_err(|e| e.to_string())?;
+    let texture = texture_creator
+        .create_texture_from_surface(&surface)
+        .map_err(|e| e.to_string())?;
+    let TextureQuery { width, height, .. } = texture.query();
+    let text_rect = Rect::new(battle_init.name_text_map[&battle_init.enemy_name].2.x, 28, 150, 20);
+    let text_rect = fit(text_rect, width, height);
+    wincan.copy(&texture, None, text_rect)?;
+
+    // Add level to player monster
+    let texture_creator = wincan.texture_creator();
+    let f = format!("Level: {}", &battle_init.player_level.to_string()); 
+    let surface = battle_init
+        .font
+        .render(&f)
+        .blended(Color::BLACK)
+        .map_err(|e| e.to_string())?;
+    let texture = texture_creator
+        .create_texture_from_surface(&surface)
+        .map_err(|e| e.to_string())?;
+    let TextureQuery { width, height, .. } = texture.query();
+    let text_rect = Rect::new(battle_init.name_text_map[&battle_init.player_name].1.x + battle_init.name_text_map[&battle_init.player_name].1.width() as i32 - width as i32, 452, 150, 20);
+    let text_rect = fit(text_rect, width, height);
+    let text_rect = Rect::new(battle_init.name_text_map[&battle_init.player_name].1.x + battle_init.name_text_map[&battle_init.player_name].1.width() as i32 - text_rect.width() as i32, 452, text_rect.width(), text_rect.height());
+    wincan.copy(&texture, None, text_rect)?;
+
     // Calculate and add health bars for each monster
     health_bars(wincan, battle_init.player_health, battle_init.enemy_health)?;
     
     // Print out a message if needed
     match message {
         Some(text) => {
-            message_box(wincan, battle_init.font, &text)?;
+            let a = text.replace("​", ""); // ZERO WIDTH SPACE
+            message_box(wincan, battle_init.font, &a)?;
             thread::sleep(Duration::from_millis(MESSAGE_TIME));
         }
         None => (),
@@ -364,7 +408,7 @@ pub fn player_battle_turn(
     draw_battle(wincan, &battle_draw, None, Some(f))?;
 
     // Apply the damage internally and to the drawing
-    let d = monster::calculate_damage(battle_draw.monsters, battle_state, current_choice, true);
+    let d = monster::calculate_damage(battle_draw.monsters, battle_state, current_choice);
     battle_draw.apply_enemy_damage(d);
     battle_state.enemy_team[0].1 = battle_draw.enemy_health;
 
@@ -391,10 +435,19 @@ pub fn player_battle_turn(
         let f = format!("{} KO'd {}!", &player_monster, &enemy_monster);
         draw_battle(wincan, &battle_draw, None, Some(f))?;
 
+        thread::sleep(Duration::from_millis(200));
+        let exp = exp_gain(&enemy_monster, &monsters_map);
+        battle_state.player_team[1].2 += exp;
+        let f = format!("{} gained {} experience.", &player_monster, exp);
+        draw_battle(wincan, &battle_draw, None, Some(f))?;
+
         if battle_state.enemy_team.len() > 1 && battle_state.enemy_team[1].1 > 0.0 {
             battle_state.enemy_team = verify_team(&battle_state.enemy_team);
             battle_draw.enemy_health = battle_state.enemy_team[0].1;
             battle_draw.enemy_name = battle_state.enemy_team[0].0.clone();
+            battle_draw.opp_level = battle_state.enemy_team[0].2 / 10;
+            battle_state.opp_attack_stages = 0;
+            battle_state.opp_defense_stages = 0;
             
             thread::sleep(Duration::from_millis(200));
             let f = format!("Enemy sent out {}!", battle_state.enemy_team[0].0);
@@ -425,11 +478,22 @@ pub fn enemy_battle_turn(
     battle_state: &mut monster::BattleState,
     battle_draw: &mut Battle,
     monsters_map: &HashMap<String, monster::Monster>,
+    enemy_choice: usize,
 ) -> Result<Map, String> {
     let enemy_monster = battle_draw.enemy_name.clone();
     let player_monster = battle_draw.player_name.clone();
 
-    let enemy_choice = rand::thread_rng().gen_range(0..4) as usize;
+    if enemy_choice > 3 {
+        thread::sleep(Duration::from_millis(200));
+        battle_state.enemy_team.swap(0, enemy_choice-3);
+        println!("{:?}", battle_state.enemy_team);
+        battle_state.enemy_team = verify_team(&battle_state.enemy_team);
+        let f = format!("Enemy switched in {}", &battle_state.enemy_team[0].0);
+        battle_draw.enemy_health = battle_state.enemy_team[0].1;
+        battle_draw.enemy_name = battle_state.enemy_team[0].0.clone();
+        draw_battle(wincan, &battle_draw, None, Some(f))?;
+        return Ok(Map::Battle)
+    }
 
     // Message for what move was used
 
@@ -442,7 +506,7 @@ pub fn enemy_battle_turn(
     draw_battle(wincan, &battle_draw, None, Some(f))?;
 
     // Apply the damage internally and to the drawing
-    let d = monster::calculate_damage(battle_draw.monsters, battle_state, enemy_choice, false);
+    let d = monster::calculate_damage(battle_draw.monsters, battle_state, enemy_choice);
     battle_draw.apply_player_damage(d);
     battle_state.player_team[0].1 = battle_draw.player_health;
     
@@ -473,6 +537,9 @@ pub fn enemy_battle_turn(
             battle_state.player_team = verify_team(&battle_state.player_team);
             battle_draw.player_health = battle_state.player_team[0].1;
             battle_draw.player_name = battle_state.player_team[0].0.clone();
+            battle_draw.player_level = battle_state.player_team[0].2 / 10;
+            battle_state.self_attack_stages = 0;
+            battle_state.self_defense_stages = 0;
             
             thread::sleep(Duration::from_millis(200));
             let f = format!("Player sent out {}!", battle_state.player_team[0].0);
@@ -535,7 +602,6 @@ pub fn draw_monster_menu(
     let player_team = &battle_state.player_team;
 
     // Create menu background
-    //wincan.set_draw_color(Color::RGB(0, 38, 255));
     wincan.set_draw_color(Color::RGB(0x20, 0x41, 0x6a));
     wincan.fill_rect(Rect::new(100, 80, 350, 560))?;
     wincan.fill_rect(Rect::new(470, 80, 710, 560))?;
@@ -629,9 +695,7 @@ pub fn draw_monster_menu(
         wincan.copy(&texture, None, text_rect)?;
 
         // Add stats
-
-        // TODO: Have a count of the number of badges
-        let f = format!("Badges: {}", 0);
+        let f = format!("Badges: {}", battle_state.player_badges);
         let surface = battle_init
             .font
             .render(&f)
@@ -749,21 +813,45 @@ pub fn draw_monster_menu(
     Ok(())
 }
 
-pub fn verify_team(v: &Vec<(String, f32)>) -> Vec<(String, f32)>{
-    let mut alive : Vec<(String, f32)> = Vec::new();
-    let mut dead : Vec<(String, f32)> = Vec::new();
+
+/// Ensures alive monsters are ordered before dead monsters, and ensures proper leveling
+/// 
+/// * `v` - The team (in Vector<String name, float health%, usize experience>) to be verified via return value
+pub fn verify_team(v: &Vec<(String, f32, usize)>) -> Vec<(String, f32, usize)>{
+    let mut alive : Vec<(String, f32, usize)> = Vec::new();
+    let mut dead : Vec<(String, f32, usize)> = Vec::new();
     for item in v.iter() {
-      if item.1 > 0.0 {
-        alive.push(item.clone());
-      }
-      else {
-        dead.push(item.clone());
-      }
+        // Ensure all level 5+ monsters have learned better moves
+        let mut mate = item.clone();
+        if mate.2 >= 50 && !mate.0.starts_with("​") { // ZERO WIDTH SPACE
+            mate.0 = format!("​{}", mate.0); // ZERO WIDTH SPACE
+        } else if mate.2 < 50 && mate.0.starts_with("​") {
+            let mut chars = mate.0.chars();
+            chars.next();
+            mate.0 = chars.collect();
+        }
+
+        // Make sure that all alive monsters are in front; dead monsters in back
+        if mate.1 > 0.0 {
+            alive.push(mate.clone());
+        }
+        else {
+            dead.push(mate.clone());
+        }
     }
     alive.append(&mut dead);
     return alive;
 }
 
-pub fn turn_calc<'a>(monsters: &HashMap<String, monster::Monster>, battle_state: &monster::BattleState) -> bool {
-    return monsters[&battle_state.player_team[0].0].attack_stat >= monsters[&battle_state.enemy_team[0].0].attack_stat;
+pub fn exp_gain(monster: &String, monsters: &HashMap<String, monster::Monster>) -> usize {
+    let stat_total = monsters[monster].attack_stat + monsters[monster].defense_stat;
+    return if stat_total <= 130 {
+        2
+    } else if stat_total <= 150 {
+        3
+    } else if stat_total <= 160 {
+        4
+    } else {
+        5
+    };
 }
