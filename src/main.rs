@@ -828,11 +828,11 @@ fn run(
             battle_draw.enemy_name = enemy_monster.clone();
             let player_monster = next_available_mon(&player_team);
             battle_draw.player_name = player_monster.clone();
-
+            battle_draw.player_level = battle_state.player_team[0].2 / 10;
             battle_state = monster::BattleState {
               player_turn: monsters_map[&player_monster].attack_stat
                 >= monsters_map[&enemy_monster].attack_stat,
-              player_team: battle_state.player_team.clone(),
+              player_team: battle::verify_team(&battle_state.player_team),
               enemy_team: enemy_team.clone(),
               self_attack_stages: 0,
               self_defense_stages: 0,
@@ -876,10 +876,11 @@ fn run(
             battle_draw.enemy_name = enemy_monster.clone();
             let player_monster = next_available_mon(&battle_state.player_team);
             battle_draw.player_name = player_monster.clone();
+            battle_draw.player_level = battle_state.player_team[0].2 / 10;
 
             battle_state = monster::BattleState {
               player_turn: true,
-              player_team: battle_state.player_team.clone(),
+              player_team: battle::verify_team(&battle_state.player_team),
               enemy_team: enemy_team.clone(),
               self_attack_stages: 0,
               self_defense_stages: 0,
@@ -1126,6 +1127,7 @@ fn run(
                 if battle_draw.player_name != switched_front.0 {
                   let new_mon = String::from(switched_front.0.clone());
                   let f = format!("You switched in {}!", new_mon);
+                  battle_draw.player_level = battle_state.player_team[0].2 / 10;
                   battle_draw.player_name = new_mon.clone();
                   battle_draw.player_health = switched_front.1;
                   battle_state.self_attack_stages = 0;
@@ -1590,10 +1592,11 @@ fn run(
           battle_draw.enemy_name = enemy_monster.clone();
           let player_monster = next_available_mon(&battle_state.player_team);
           battle_draw.player_name = player_monster.clone();
+          battle_draw.player_level = battle_state.player_team[0].2 / 10;
           
           battle_state = monster::BattleState {
             player_turn: true,
-            player_team: battle_state.player_team.clone(),
+            player_team: battle::verify_team(&battle_state.player_team),
             enemy_team: enemy_team.clone(),
             self_attack_stages: 0,
             self_defense_stages: 0,
@@ -1647,10 +1650,11 @@ fn run(
           battle_draw.enemy_name = enemy_monster.clone();
           let player_monster = next_available_mon(&battle_state.player_team);
           battle_draw.player_name = player_monster.clone();
+          battle_draw.player_level = battle_state.player_team[0].2 / 10;
           
           battle_state = monster::BattleState {
             player_turn: true,
-            player_team: battle_state.player_team.clone(),
+            player_team: battle::verify_team(&battle_state.player_team),
             enemy_team: enemy_team.clone(),
             self_attack_stages: 0,
             self_defense_stages: 0,
