@@ -350,9 +350,6 @@ fn run(
     let single_elapsed = timer.elapsed().as_secs_f64();
     timer = Instant::now();
 
-    player_box.set_width(32);
-    player_box.set_height(32);
-    
     match loaded_map {
       Map::Intro => {
         let screen = Rect::new(0, 0, CAM_W, CAM_H);
@@ -1312,8 +1309,6 @@ fn run(
       },
       Map::GymThree => {
         gym_no = 2;
-        player_box.set_height(24);
-        player_box.set_width(24);
       },
       Map::GymFour => {
         gym_no = 3;
@@ -1324,7 +1319,8 @@ fn run(
     }
     if matches!(loaded_map, Map::Gym | Map::GymOne | Map::GymTwo | Map::GymThree | Map::GymFour) {
       // Determine the walls and draw them
-      let mut collision = gym::draw_gym(wincan, gym_mazes[gym_no].clone(), gym_no);
+      // pass in the player's position in order to determin which portion of the map to display
+      let mut collision = gym::draw_gym(wincan, gym_mazes[gym_no].clone(), gym_no, player_box.x(), player_box.y());
 
       let mut wall_collision = false;
       // Prevent the player from going thru walls
@@ -1338,7 +1334,7 @@ fn run(
       }
 
       // Determine the placement of gym trainers and boss
-      let gym_npcs = gym::draw_npc(wincan, &gym_mazes[gym_no], gym_no);
+      let gym_npcs = gym::draw_npc(wincan, &gym_mazes[gym_no], gym_no, player_box.x(), player_box.y());
       let boss = gym_npcs.1;
       
       // Check if the player wants to exit the gym
@@ -1566,8 +1562,11 @@ fn run(
       
       // Try to move vertically
       player_box.set_y(player_box.y() + y_vel);
-      
 
+      // Here we want to make the player's position camera related
+      //player_box.set_x(player_box.x() - cur_bg.x());
+      //player_box.set_y(player_box.y() - cur_bg.y());
+      
       // Determine to show option of battling NPC
       let mut show_battle_menu = false;
       for npc in gym_npcs.0 {
