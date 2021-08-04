@@ -110,11 +110,11 @@ pub fn draw_gym(wincan: &mut WindowCanvas, maze: Maze, gym_no: usize, player_x: 
     collision_vec.push(start_box.clone());
     wincan.copy(&start_sheet, None, start_box).unwrap();
 
-    let top_entrance = Rect::new(1150,0, x_increment, 5);
+    let top_entrance = Rect::new(1150,0, x_increment + 20, 5);
     collision_vec.push(top_entrance.clone());
 
     
-    let bottom_entrance = Rect::new(1150, y_increment as i32, x_increment, 5);
+    let bottom_entrance = Rect::new(1150, y_increment as i32, x_increment + 20, 5);
     collision_vec.push(bottom_entrance.clone());
 
     return collision_vec;
